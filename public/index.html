@@ -225,7 +225,7 @@
 
       let index;
       do {
-        index = Math.floor(Math.random() * 10) + 1; // Adjust "10" to your total number of mp3s
+        index = Math.floor(Math.random() * 10) + 1;
       } while (index === lastThinkingIndex);
 
       lastThinkingIndex = index;
@@ -256,7 +256,7 @@
         console.warn("Thinking audio could not start.");
       }
 
-      await fetch("http://localhost:3000/generate", {
+      await fetch("/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt })
@@ -267,7 +267,7 @@
 
     async function pollUntilReady() {
       try {
-        const response = await fetch("http://localhost:3000/latest");
+        const response = await fetch("/latest");
         const data = await response.json();
         if (data.text) {
           speakText(data.text);
