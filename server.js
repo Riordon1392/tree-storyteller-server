@@ -14,7 +14,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-
 let latestText = "";
 
 app.post('/generate', async (req, res) => {
@@ -50,10 +49,10 @@ app.post('/generate', async (req, res) => {
     });
 
     const audioData = Buffer.from(elevenResponse.data.audio_base64, 'base64');
-    fs.writeFileSync(path.join(__dirname, '../web/latestAudio.mp3'), audioData);
+    fs.writeFileSync(path.join(__dirname, 'public/latestAudio.mp3'), audioData);
 
     const timestampsData = elevenResponse.data.alignment;
-    fs.writeFileSync(path.join(__dirname, '../web/timestamps.json'), JSON.stringify(timestampsData));
+    fs.writeFileSync(path.join(__dirname, 'public/timestamps.json'), JSON.stringify(timestampsData));
 
     console.log('✅ Audio and timestamps saved.');
     res.json({ status: 'ok' });
