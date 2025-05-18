@@ -5,12 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Tree Storyteller</title>
   <style>
-    /* [unchanged styles omitted for brevity] */
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: "Cinzel", serif;
+      color: white;
+      height: 100vh;
+    }
+
+    #portal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -2;
+    }
+
+    #tapOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0ff;
+      font-size: 2.5em;
+      z-index: 9999;
+      transition: opacity 1s ease;
+    }
+
+    #statusText {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2em;
+      text-shadow: 0 0 20px #0ff, 0 0 30px #0ff;
+      opacity: 1;
+      transition: opacity 1s ease;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    #overlayContainer {
+      position: absolute;
+      width: 80%;
+      height: 80%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      mask-image: linear-gradient(to top, transparent 0%, white 20%, white 80%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to top, transparent 0%, white 20%, white 80%, transparent 100%);
+    }
+
+    #overlayText {
+      font-size: 1.8em;
+      white-space: pre-wrap;
+      text-align: center;
+      text-shadow: 0 0 20px #0ff, 0 0 30px #0ff;
+      word-break: break-word;
+      opacity: 1;
+      transition: opacity 2s ease;
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
   <div id="tapOverlay">Tap to Begin</div>
-  <video id="portal" autoplay muted loop playsinline>
+  <video id="portal" autoplay muted loop>
     <source src="magic-vortex-portal.mp4" type="video/mp4" />
   </video>
   <div id="statusText">The Tree is Listening...</div>
@@ -31,21 +104,6 @@
     let isPrompting = false;
     let isThinking = false;
     let scrollInterval = null;
-    let wakeLock = null;
-
-    async function requestWakeLock() {
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-          wakeLock.addEventListener('release', () => {
-            console.log('🔋 Wake Lock released');
-          });
-          console.log('🔋 Wake Lock acquired');
-        } catch (err) {
-          console.error('Wake Lock error:', err);
-        }
-      }
-    }
 
     function resetOverlay() {
       overlayText.innerHTML = "";
@@ -164,6 +222,7 @@
 
     function playRandomThinkingAudio() {
       if (!isThinking) return;
+
       let index;
       do {
         index = Math.floor(Math.random() * 10) + 1;
@@ -249,8 +308,8 @@
       }, 30);
 
       voiceAudio = new Audio(`latestAudio.mp3?cachebuster=${Date.now()}`);
-      voiceAudio.play().catch(err => console.warn("Voice playback error:", err));
-      voiceAudio.onpause = () => console.warn("Voice playback paused");
+      voiceAudio.play();
+
       voiceAudio.onended = () => {
         clearInterval(displayInterval);
         clearInterval(scrollInterval);
@@ -262,7 +321,6 @@
     tapOverlay.addEventListener('click', () => {
       tapOverlay.style.opacity = 0;
       setTimeout(() => tapOverlay.remove(), 1000);
-      requestWakeLock();
       startWakeRecognition();
     });
   </script>
