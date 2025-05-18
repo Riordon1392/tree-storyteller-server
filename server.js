@@ -85,11 +85,8 @@ app.post('/generate', async (req, res) => {
 });
 
 // API endpoint to get latest text
-app.get('/latest', (req, res) => {
-  if (!latestText) {
-    return res.status(404).json({ error: 'No text available yet.' });
-  }
-  res.json({ text: latestText });
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start server
