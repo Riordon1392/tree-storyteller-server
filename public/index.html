@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Magic Mirror Test</title>
+</head>
+<body>
+  <h1>🌳 Magic Mirror Test</h1>
+  <textarea id="prompt" rows="4" cols="50" placeholder="Ask the tree a question..."></textarea><br>
+  <button onclick="sendPrompt()">Send</button>
+  <p id="status"></p>
+  <audio id="audio" controls></audio>
+
+  <script>
+    async function sendPrompt() {
+      const prompt = document.getElementById('prompt').value;
+      document.getElementById('status').innerText = "Sending...";
+
+      try {
+        const res = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+
+        const data = await res.json();
+        if (data.status === 'ok') {
+          document.getElementById('status').innerText = "✅ Success!";
+          document.getElementById('audio').src = 'latestAudio.mp3';
+        } else {
+          document.getElementById('status').innerText = "❌ Failed.";
+        }
+      } catch (e) {
+        console.error(e);
+        document.getElementById('status').innerText = "❌ Error.";
+      }
+    }
+  </script>
+</body>
+</html>
