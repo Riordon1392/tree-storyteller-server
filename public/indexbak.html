@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Magic Mirror Portal</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: "Cinzel", serif;
+      color: white;
+      height: 100vh;
+    }
+
+    #portal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -2;
+    }
+
+    #tapOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0ff;
+      font-size: 2.5em;
+      z-index: 9999;
+      transition: opacity 1s ease;
+    }
+
+    #statusText {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2em;
+      text-shadow: 0 0 20px #0ff, 0 0 30px #0ff;
+      opacity: 1;
+      transition: opacity 1s ease;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    #overlayContainer {
+      position: absolute;
+      width: 80%;
+      height: 80%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      mask-image: linear-gradient(to top, transparent 0%, white 20%, white 80%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to top, transparent 0%, white 20%, white 80%, transparent 100%);
+    }
+
+    #overlayText {
+      font-size: 1.8em;
+      white-space: pre-wrap;
+      text-align: center;
+      text-shadow: 0 0 20px #0ff, 0 0 30px #0ff;
+      word-break: break-word;
+      opacity: 1;
+      transition: opacity 2s ease;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div id="tapOverlay">Tap to Begin</div>
+  <video id="portal" autoplay muted loop>
+    <source src="magic-vortex-portal.mp4" type="video/mp4" />
+  </video>
+  <div id="statusText">The Mirror is Listening...</div>
+  <div id="overlayContainer">
+    <div id="overlayText"></div>
+  </div>
+
+  <script>
+    const statusText = document.getElementById("statusText");
+    const overlayText = document.getElementById("overlayText");
+    const tapOverlay = document.getElementById("tapOverlay");
+
+    let wakeRecognition = null;
+    let promptRecognition = null;
+    let voiceAudio = new Audio();
+    let isPrompting = false;
+    let scrollInterval = null;
+    let audioContext;
+
+    function resetOverlay() {
+      overlayText.innerHTML = "";
+      overlayText.style.transform = "translateY(0px)";
+      overlayText.style.opacity = 1;
+      statusText.style.opacity = 1;
+      statusText.textContent = "The Mirror is Listening...";
+    }
+
+function stopRecognition(recognition) {
+  if (recognition) {
+    try {
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.abort();
+    } catch (e) {
+      console.error("Error stopping recognition:", e);
+    }
+  }
+}
+
+function startWakeRecognition() {
+  console.log("Attempting to start wake recognition...");
+  if (isPrompting) {
+    console.log("Blocked: already prompting");
+    return;
+  }
+  stopRecognition(wakeRecognition);
+  wakeRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  wakeRecognition.lang = 'en-US';
+  wakeRecognition.continuous = false;
+  wakeRecognition.interimResults = false;
+
+  wakeRecognition.onresult = (event) => {
+    console.log("Wake word heard:", event.results[0][0].transcript);
+    const speech = event.results[0][0].transcript.toLowerCase();
+    if (speech.includes("apple bark")) {
+      stopRecognition(wakeRecognition);
+      statusText.textContent = "Ask your question...";
+      setTimeout(startPromptRecognition, 500);
+    } else {
+      restartWake();
+    }
+  };
+
+  wakeRecognition.onerror = (event) => {
+    console.error("Wake recognition error:", event.error);
+    restartWake();
+  };
+
+  wakeRecognition.onend = () => {
+    if (!isPrompting) {
+      console.log("Wake recognition ended. Restarting...");
+      restartWake();
+    }
+  };
+
+  try {
+    wakeRecognition.start();
+    console.log("Wake recognition started.");
+  } catch (e) {
+    console.error("Error starting wake recognition:", e);
+    restartWake();
+  }
+}
+
+
+function restartWake() {
+  stopRecognition(wakeRecognition);
+  setTimeout(startWakeRecognition, 500);
+}
+
+function startPromptRecognition() {
+  console.log("Prompt recognition starting...");
+  isPrompting = true;
+  stopRecognition(promptRecognition);
+  promptRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  promptRecognition.lang = 'en-US';
+  promptRecognition.continuous = false;
+  promptRecognition.interimResults = false;
+
+  promptRecognition.onresult = (event) => {
+    const userSpeech = event.results[0][0].transcript.toLowerCase();
+    console.log("Prompt heard:", userSpeech); // 🧙 Log this
+    if (userSpeech.includes("give me a quest")) {
+      loadRandomQuest();
+    } else {
+      generate(userSpeech);
+    }
+  };
+
+  promptRecognition.onerror = (event) => {
+    console.error("Prompt recognition error:", event.error);
+    isPrompting = false;
+    restartWake();
+  };
+
+  promptRecognition.onend = () => {
+    console.log("Prompt recognition ended.");
+    isPrompting = false;
+    restartWake();
+  };
+
+  try {
+    promptRecognition.start();
+    console.log("Prompt recognition started.");
+  } catch (e) {
+    console.error("Error starting prompt recognition:", e);
+    isPrompting = false;
+    restartWake();
+  }
+}
+
+
+
+    async function loadRandomQuest() {
+      try {
+        const response = await fetch('quests.json');
+        const quests = await response.json();
+        const quest = quests[Math.floor(Math.random() * quests.length)];
+        generate(quest.prompt);
+      } catch (e) {
+        speakText("I'm afraid I cannot summon a quest right now.");
+      }
+    }
+
+    async function generate(prompt) {
+      resetOverlay();
+      statusText.textContent = "The Mirror is Thinking...";
+      statusText.style.opacity = 1;
+      await fetch("http://localhost:3000/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt })
+      });
+      pollUntilReady();
+    }
+
+    async function pollUntilReady() {
+      try {
+        const response = await fetch("http://localhost:3000/latest");
+        const data = await response.json();
+        if (data.text) {
+          speakText(data.text);
+        } else {
+          setTimeout(pollUntilReady, 500);
+        }
+      } catch {
+        setTimeout(pollUntilReady, 1000);
+      }
+    }
+
+    function speakText(fullText) {
+      overlayText.innerHTML = "";
+      overlayText.style.opacity = 1;
+      overlayText.style.transform = "translateY(0px)";
+      statusText.style.opacity = 0;
+
+      let index = 0;
+      let scrollY = 0;
+
+      clearInterval(scrollInterval);
+      scrollInterval = setInterval(() => {
+        scrollY -= 0.1;
+        overlayText.style.transform = `translateY(${scrollY}px)`;
+      }, 40);
+
+      const displayInterval = setInterval(() => {
+        if (index < fullText.length) {
+          overlayText.innerHTML += fullText.charAt(index++);
+        }
+      }, 30);
+
+      voiceAudio = new Audio(`latestAudio.mp3?cachebuster=${Date.now()}`);
+      voiceAudio.play();
+
+      voiceAudio.onended = () => {
+        clearInterval(displayInterval);
+        clearInterval(scrollInterval);
+        overlayText.style.opacity = 0;
+        setTimeout(resetOverlay, 2000);
+      };
+    }
+
+    async function startHumLoop() {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const response = await fetch("Dark Magic Portal Spell Loop 1.ogg");
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const humSource = audioContext.createBufferSource();
+      humSource.buffer = audioBuffer;
+      humSource.loop = true;
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = 0.3;
+      humSource.connect(gainNode).connect(audioContext.destination);
+      humSource.start(0);
+    }
+
+    tapOverlay.addEventListener('click', async () => {
+      tapOverlay.style.opacity = 0;
+      setTimeout(() => tapOverlay.remove(), 1000);
+      await startHumLoop();
+      startWakeRecognition();
+    });
+  </script>
+</body>
+</html>

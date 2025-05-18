@@ -10,6 +10,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve static files from the public directory
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -19,35 +20,51 @@ let latestText = "";
 app.post('/generate', async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
+    if (!prompt) {
+      return res.status(400).json({ error: 'No prompt provided' });
+    }
 
-    const gptResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: 'You are an old wise talking tree that tells wonderfully magical stories.' },
-        { role: 'user', content: prompt }
-      ]
-    }, {
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
+    // Call OpenAI for story generation
+    const gptResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are an old wise talking tree that tells wonderfully magical stories.' },
+          { role: 'user', content: prompt }
+        ]
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
     const generatedText = gptResponse.data.choices[0].message.content.trim();
     latestText = generatedText;
 
-    const elevenResponse = await axios.post(`https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}/with-timestamps`, {
-      text: generatedText,
-      model_id: 'eleven_monolingual_v1',
-      voice_settings: { stability: 0.5, similarity_boost: 0.8 }
-    }, {
-      headers: {
-        'xi-api-key': process.env.ELEVENLABS_API_KEY,
-        'Content-Type': 'application/json'
+    // Call ElevenLabs for TTS generation
+    const elevenResponse = await axios.post(
+      `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}/with-timestamps`,
+      {
+        text: generatedText,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.8
+        }
+      },
+      {
+        headers: {
+          'xi-api-key': process.env.ELEVENLABS_API_KEY,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
+    // Save audio file and timestamps to public folder
     const audioData = Buffer.from(elevenResponse.data.audio_base64, 'base64');
     fs.writeFileSync(path.join(__dirname, 'public/latestAudio.mp3'), audioData);
 
@@ -64,10 +81,12 @@ app.post('/generate', async (req, res) => {
 });
 
 app.get('/latest', (req, res) => {
-  if (!latestText) return res.status(404).json({ error: 'No text available.' });
+  if (!latestText) {
+    return res.status(404).json({ error: 'No text available.' });
+  }
   res.json({ text: latestText });
 });
 
 app.listen(PORT, () => {
-  console.log(`✨ Magic Mirror server running at http://localhost:${PORT}`);
+  console.log(`✨ Magic Mirror server running on port ${PORT}`);
 });
