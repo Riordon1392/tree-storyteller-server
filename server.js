@@ -13,22 +13,28 @@ let latestText = "";
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Serve static assets from the "public" folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve index.html on root
+// Serve index.html for root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API endpoint to generate story + audio
+// Serve latest story text
+app.get('/latest', (req, res) => {
+  if (!latestText) {
+    return res.status(404).json({ error: 'No text available.' });
+  }
+  res.json({ text: latestText });
+});
+
+// Handle prompt generation
 app.post('/generate', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
 
   try {
-    // Get story from OpenAI
+    // Generate story
     const gptResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -49,7 +55,7 @@ app.post('/generate', async (req, res) => {
     const generatedText = gptResponse.data.choices[0].message.content.trim();
     latestText = generatedText;
 
-    // Generate voice from ElevenLabs
+    // Generate TTS
     const elevenResponse = await axios.post(
       `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}/with-timestamps`,
       {
@@ -68,28 +74,20 @@ app.post('/generate', async (req, res) => {
       }
     );
 
-    // Save files to /public so they can be accessed by the front end
     const audioData = Buffer.from(elevenResponse.data.audio_base64, 'base64');
     fs.writeFileSync(path.join(__dirname, 'public', 'latestAudio.mp3'), audioData);
-
-    const timestampsData = elevenResponse.data.alignment;
-    fs.writeFileSync(path.join(__dirname, 'public', 'timestamps.json'), JSON.stringify(timestampsData));
+    fs.writeFileSync(path.join(__dirname, 'public', 'timestamps.json'), JSON.stringify(elevenResponse.data.alignment));
 
     console.log('✅ Story and audio saved successfully.');
     res.json({ status: 'ok' });
 
   } catch (error) {
-    console.error('❌ Server error:', error.response?.data || error.message);
+    console.error('❌ Error generating response:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to generate story or audio.' });
   }
 });
 
-// API endpoint to get latest text
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // Start server
 app.listen(PORT, () => {
-  console.log(`✨ Magic Mirror server running at http://localhost:${PORT}`);
+  console.log(`✨ Tree server running at http://localhost:${PORT}`);
 });
