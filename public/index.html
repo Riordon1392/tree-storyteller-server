@@ -126,6 +126,28 @@
       }
     }
 
+	function playRandomAcknowledgementAudio(onComplete) {
+  	const index = Math.floor(Math.random() * 3) + 1;
+ 	 const file = `tree-acknowledge-${index}.mp3`;
+  	console.log(`🎙️ Acknowledgement file: ${file}`);
+  
+  	const audio = new Audio(file);
+  	audio.onended = () => {
+    	console.log("✅ Acknowledgement audio ended.");
+    	if (typeof onComplete === 'function') onComplete();
+  	};
+ 	 audio.onerror = (err) => {
+    	console.warn("⚠️ Error playing acknowledgement audio:", err);
+    	if (typeof onComplete === 'function') onComplete();
+ 	 };
+  	audio.play().catch(err => {
+    	console.error("🚫 play() rejected:", err);
+    	if (typeof onComplete === 'function') onComplete();
+  	});
+	}
+
+
+
     function startWakeRecognition() {
       if (isPrompting) return;
       stopRecognition(wakeRecognition);
@@ -134,17 +156,25 @@
       wakeRecognition.continuous = false;
       wakeRecognition.interimResults = false;
 
-      wakeRecognition.onresult = (event) => {
-        const speech = event.results[0][0].transcript.toLowerCase();
-        console.log("Wake word heard:", speech);
-        if (speech.includes("apple bark")) {
-          stopRecognition(wakeRecognition);
-          statusText.textContent = "Ask your question...";
-          setTimeout(startPromptRecognition, 500);
-        } else {
-          restartWake();
-        }
-      };
+    wakeRecognition.onresult = (event) => {
+  	const speech = event.results[0][0].transcript.toLowerCase();
+  	console.log("👂 Wake word heard:", speech);
+
+  	if (speech.includes("apple bark")) {
+   	 stopRecognition(wakeRecognition);
+   	 statusText.textContent = "Ask your question...";
+
+    	console.log("🔊 Playing acknowledgement audio...");
+    	playRandomAcknowledgementAudio(() => {
+      	console.log("🎤 Starting prompt recognition...");
+      	setTimeout(startPromptRecognition, 500);
+    	});
+
+  	} else {
+    	console.log("🌀 Wake word not detected, restarting...");
+    	restartWake();
+  	}
+	};
 
       wakeRecognition.onerror = (event) => {
         console.error("Wake recognition error:", event.error);
@@ -222,22 +252,17 @@
 
     function playRandomThinkingAudio() {
       if (!isThinking) return;
-
       let index;
       do {
         index = Math.floor(Math.random() * 10) + 1;
       } while (index === lastThinkingIndex);
-
       lastThinkingIndex = index;
       const audioFile = `tree-thinking-${index}.mp3`;
-
       thinkingAudio = new Audio(audioFile);
       thinkingAudio.play();
-
       thinkingAudio.onended = () => {
         if (isThinking) playRandomThinkingAudio();
       };
-
       thinkingAudio.onerror = () => {
         console.warn("Thinking audio error. Retrying...");
         if (isThinking) playRandomThinkingAudio();
@@ -248,20 +273,17 @@
       resetOverlay();
       statusText.textContent = "The Tree is Thinking...";
       statusText.style.opacity = 1;
-
       try {
         isThinking = true;
         playRandomThinkingAudio();
       } catch (e) {
         console.warn("Thinking audio could not start.");
       }
-
       await fetch("/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt })
       });
-
       pollUntilReady();
     }
 
@@ -284,7 +306,6 @@
       overlayText.style.opacity = 1;
       overlayText.style.transform = "translateY(0px)";
       statusText.style.opacity = 0;
-
       if (thinkingAudio) {
         isThinking = false;
         thinkingAudio.pause();
@@ -294,7 +315,6 @@
 
       let index = 0;
       let scrollY = 0;
-
       clearInterval(scrollInterval);
       scrollInterval = setInterval(() => {
         scrollY -= 0.1;
@@ -309,7 +329,6 @@
 
       voiceAudio = new Audio(`latestAudio.mp3?cachebuster=${Date.now()}`);
       voiceAudio.play();
-
       voiceAudio.onended = () => {
         clearInterval(displayInterval);
         clearInterval(scrollInterval);
