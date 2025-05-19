@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Magic Mirror Portal</title>
+  <title>Tree Storyteller</title>
   <style>
     body {
       margin: 0;
@@ -86,7 +86,7 @@
   <video id="portal" autoplay muted loop>
     <source src="magic-vortex-portal.mp4" type="video/mp4" />
   </video>
-  <div id="statusText">The Mirror is Listening...</div>
+  <div id="statusText">The Tree is Listening...</div>
   <div id="overlayContainer">
     <div id="overlayText"></div>
   </div>
@@ -99,124 +99,145 @@
     let wakeRecognition = null;
     let promptRecognition = null;
     let voiceAudio = new Audio();
+    let thinkingAudio = null;
+    let lastThinkingIndex = null;
     let isPrompting = false;
+    let isThinking = false;
     let scrollInterval = null;
-    let audioContext;
 
     function resetOverlay() {
       overlayText.innerHTML = "";
       overlayText.style.transform = "translateY(0px)";
       overlayText.style.opacity = 1;
       statusText.style.opacity = 1;
-      statusText.textContent = "The Mirror is Listening...";
+      statusText.textContent = "The Tree is Listening...";
     }
 
-function stopRecognition(recognition) {
-  if (recognition) {
-    try {
-      recognition.onresult = null;
-      recognition.onerror = null;
-      recognition.onend = null;
-      recognition.abort();
-    } catch (e) {
-      console.error("Error stopping recognition:", e);
+    function stopRecognition(recognition) {
+      if (recognition) {
+        try {
+          recognition.onresult = null;
+          recognition.onerror = null;
+          recognition.onend = null;
+          recognition.abort();
+        } catch (e) {
+          console.error("Error stopping recognition:", e);
+        }
+      }
     }
-  }
-}
 
-function startWakeRecognition() {
-  console.log("Attempting to start wake recognition...");
-  if (isPrompting) {
-    console.log("Blocked: already prompting");
-    return;
-  }
-  stopRecognition(wakeRecognition);
-  wakeRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-  wakeRecognition.lang = 'en-US';
-  wakeRecognition.continuous = false;
-  wakeRecognition.interimResults = false;
+	function playRandomAcknowledgementAudio(onComplete) {
+  	const index = Math.floor(Math.random() * 3) + 1;
+ 	 const file = `tree-acknowledge-${index}.mp3`;
+  	console.log(`🎙️ Acknowledgement file: ${file}`);
+  
+  	const audio = new Audio(file);
+  	audio.onended = () => {
+    	console.log("✅ Acknowledgement audio ended.");
+    	if (typeof onComplete === 'function') onComplete();
+  	};
+ 	 audio.onerror = (err) => {
+    	console.warn("⚠️ Error playing acknowledgement audio:", err);
+    	if (typeof onComplete === 'function') onComplete();
+ 	 };
+  	audio.play().catch(err => {
+    	console.error("🚫 play() rejected:", err);
+    	if (typeof onComplete === 'function') onComplete();
+  	});
+	}
 
-  wakeRecognition.onresult = (event) => {
-    console.log("Wake word heard:", event.results[0][0].transcript);
-    const speech = event.results[0][0].transcript.toLowerCase();
-    if (speech.includes("apple bark")) {
+
+
+    function startWakeRecognition() {
+      if (isPrompting) return;
       stopRecognition(wakeRecognition);
-      statusText.textContent = "Ask your question...";
-      setTimeout(startPromptRecognition, 500);
-    } else {
-      restartWake();
+      wakeRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      wakeRecognition.lang = 'en-US';
+      wakeRecognition.continuous = false;
+      wakeRecognition.interimResults = false;
+
+    wakeRecognition.onresult = (event) => {
+  	const speech = event.results[0][0].transcript.toLowerCase();
+  	console.log("👂 Wake word heard:", speech);
+
+  	if (speech.includes("apple bark")) {
+   	 stopRecognition(wakeRecognition);
+   	 statusText.textContent = "Ask your question...";
+
+    	console.log("🔊 Playing acknowledgement audio...");
+    	playRandomAcknowledgementAudio(() => {
+      	console.log("🎤 Starting prompt recognition...");
+      	setTimeout(startPromptRecognition, 500);
+    	});
+
+  	} else {
+    	console.log("🌀 Wake word not detected, restarting...");
+    	restartWake();
+  	}
+	};
+
+      wakeRecognition.onerror = (event) => {
+        console.error("Wake recognition error:", event.error);
+        restartWake();
+      };
+
+      wakeRecognition.onend = () => {
+        if (!isPrompting) restartWake();
+      };
+
+      try {
+        wakeRecognition.start();
+        console.log("Wake recognition started.");
+      } catch (e) {
+        console.error("Error starting wake recognition:", e);
+        restartWake();
+      }
     }
-  };
 
-  wakeRecognition.onerror = (event) => {
-    console.error("Wake recognition error:", event.error);
-    restartWake();
-  };
-
-  wakeRecognition.onend = () => {
-    if (!isPrompting) {
-      console.log("Wake recognition ended. Restarting...");
-      restartWake();
+    function restartWake() {
+      stopRecognition(wakeRecognition);
+      setTimeout(startWakeRecognition, 500);
     }
-  };
 
-  try {
-    wakeRecognition.start();
-    console.log("Wake recognition started.");
-  } catch (e) {
-    console.error("Error starting wake recognition:", e);
-    restartWake();
-  }
-}
+    function startPromptRecognition() {
+      console.log("Prompt recognition starting...");
+      isPrompting = true;
+      stopRecognition(promptRecognition);
+      promptRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      promptRecognition.lang = 'en-US';
+      promptRecognition.continuous = false;
+      promptRecognition.interimResults = false;
 
+      promptRecognition.onresult = (event) => {
+        const userSpeech = event.results[0][0].transcript.toLowerCase();
+        console.log("Prompt heard:", userSpeech);
+        if (userSpeech.includes("give me a quest")) {
+          loadRandomQuest();
+        } else {
+          generate(userSpeech);
+        }
+      };
 
-function restartWake() {
-  stopRecognition(wakeRecognition);
-  setTimeout(startWakeRecognition, 500);
-}
+      promptRecognition.onerror = (event) => {
+        console.error("Prompt recognition error:", event.error);
+        isPrompting = false;
+        restartWake();
+      };
 
-function startPromptRecognition() {
-  console.log("Prompt recognition starting...");
-  isPrompting = true;
-  stopRecognition(promptRecognition);
-  promptRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-  promptRecognition.lang = 'en-US';
-  promptRecognition.continuous = false;
-  promptRecognition.interimResults = false;
+      promptRecognition.onend = () => {
+        isPrompting = false;
+        restartWake();
+      };
 
-  promptRecognition.onresult = (event) => {
-    const userSpeech = event.results[0][0].transcript.toLowerCase();
-    console.log("Prompt heard:", userSpeech); // 🧙 Log this
-    if (userSpeech.includes("give me a quest")) {
-      loadRandomQuest();
-    } else {
-      generate(userSpeech);
+      try {
+        promptRecognition.start();
+        console.log("Prompt recognition started.");
+      } catch (e) {
+        console.error("Error starting prompt recognition:", e);
+        isPrompting = false;
+        restartWake();
+      }
     }
-  };
-
-  promptRecognition.onerror = (event) => {
-    console.error("Prompt recognition error:", event.error);
-    isPrompting = false;
-    restartWake();
-  };
-
-  promptRecognition.onend = () => {
-    console.log("Prompt recognition ended.");
-    isPrompting = false;
-    restartWake();
-  };
-
-  try {
-    promptRecognition.start();
-    console.log("Prompt recognition started.");
-  } catch (e) {
-    console.error("Error starting prompt recognition:", e);
-    isPrompting = false;
-    restartWake();
-  }
-}
-
-
 
     async function loadRandomQuest() {
       try {
@@ -229,11 +250,36 @@ function startPromptRecognition() {
       }
     }
 
+    function playRandomThinkingAudio() {
+      if (!isThinking) return;
+      let index;
+      do {
+        index = Math.floor(Math.random() * 10) + 1;
+      } while (index === lastThinkingIndex);
+      lastThinkingIndex = index;
+      const audioFile = `tree-thinking-${index}.mp3`;
+      thinkingAudio = new Audio(audioFile);
+      thinkingAudio.play();
+      thinkingAudio.onended = () => {
+        if (isThinking) playRandomThinkingAudio();
+      };
+      thinkingAudio.onerror = () => {
+        console.warn("Thinking audio error. Retrying...");
+        if (isThinking) playRandomThinkingAudio();
+      };
+    }
+
     async function generate(prompt) {
       resetOverlay();
-      statusText.textContent = "The Mirror is Thinking...";
+      statusText.textContent = "The Tree is Thinking...";
       statusText.style.opacity = 1;
-      await fetch("http://localhost:3000/generate", {
+      try {
+        isThinking = true;
+        playRandomThinkingAudio();
+      } catch (e) {
+        console.warn("Thinking audio could not start.");
+      }
+      await fetch("/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt })
@@ -243,7 +289,7 @@ function startPromptRecognition() {
 
     async function pollUntilReady() {
       try {
-        const response = await fetch("http://localhost:3000/latest");
+        const response = await fetch("/latest");
         const data = await response.json();
         if (data.text) {
           speakText(data.text);
@@ -260,10 +306,15 @@ function startPromptRecognition() {
       overlayText.style.opacity = 1;
       overlayText.style.transform = "translateY(0px)";
       statusText.style.opacity = 0;
+      if (thinkingAudio) {
+        isThinking = false;
+        thinkingAudio.pause();
+        thinkingAudio.currentTime = 0;
+        thinkingAudio = null;
+      }
 
       let index = 0;
       let scrollY = 0;
-
       clearInterval(scrollInterval);
       scrollInterval = setInterval(() => {
         scrollY -= 0.1;
@@ -278,7 +329,6 @@ function startPromptRecognition() {
 
       voiceAudio = new Audio(`latestAudio.mp3?cachebuster=${Date.now()}`);
       voiceAudio.play();
-
       voiceAudio.onended = () => {
         clearInterval(displayInterval);
         clearInterval(scrollInterval);
@@ -287,24 +337,9 @@ function startPromptRecognition() {
       };
     }
 
-    async function startHumLoop() {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const response = await fetch("Dark Magic Portal Spell Loop 1.ogg");
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      const humSource = audioContext.createBufferSource();
-      humSource.buffer = audioBuffer;
-      humSource.loop = true;
-      const gainNode = audioContext.createGain();
-      gainNode.gain.value = 0.3;
-      humSource.connect(gainNode).connect(audioContext.destination);
-      humSource.start(0);
-    }
-
-    tapOverlay.addEventListener('click', async () => {
+    tapOverlay.addEventListener('click', () => {
       tapOverlay.style.opacity = 0;
       setTimeout(() => tapOverlay.remove(), 1000);
-      await startHumLoop();
       startWakeRecognition();
     });
   </script>

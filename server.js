@@ -40,7 +40,7 @@ app.post('/generate', async (req, res) => {
       {
         model: 'gpt-4o',
         messages: [
-          { role: 'system', content: 'You are an old wise talking tree that tells wonderfully magical stories.' },
+          { role: 'system', content: 'You are an ancient wise talking apple tree that tells wonderfully magical stories.' },
           { role: 'user', content: prompt }
         ]
       },
