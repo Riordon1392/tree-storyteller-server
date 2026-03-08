@@ -9,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 let latestText = "";
+let latestReady = false;
 
 // Middleware
 app.use(cors());
@@ -20,27 +21,41 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Optional health check
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
 // Serve latest story text
 app.get('/latest', (req, res) => {
-  if (!latestText) {
-    return res.status(404).json({ error: 'No text available.' });
-  }
-  res.json({ text: latestText });
+  res.json({
+    text: latestReady ? latestText : "",
+    ready: latestReady
+  });
 });
 
 // Handle prompt generation
 app.post('/generate', async (req, res) => {
   const { prompt } = req.body;
-  if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
+  if (!prompt) {
+    return res.status(400).json({ error: 'No prompt provided' });
+  }
+
+  // Clear previous response before starting new generation
+  latestText = "";
+  latestReady = false;
 
   try {
-    // Generate story
+    // Generate story text
     const gptResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
         model: 'gpt-4o',
         messages: [
-          { role: 'system', content: 'You are an ancient wise talking apple tree that tells wonderfully magical stories.' },
+          {
+            role: 'system',
+            content: 'You are an ancient wise talking apple tree that tells wonderfully magical stories.'
+          },
           { role: 'user', content: prompt }
         ]
       },
@@ -53,9 +68,8 @@ app.post('/generate', async (req, res) => {
     );
 
     const generatedText = gptResponse.data.choices[0].message.content.trim();
-    latestText = generatedText;
 
-    // Generate TTS
+    // Generate TTS audio
     const elevenResponse = await axios.post(
       `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}/with-timestamps`,
       {
@@ -75,19 +89,33 @@ app.post('/generate', async (req, res) => {
     );
 
     const audioData = Buffer.from(elevenResponse.data.audio_base64, 'base64');
-    fs.writeFileSync(path.join(__dirname, 'public', 'latestAudio.mp3'), audioData);
-    fs.writeFileSync(path.join(__dirname, 'public', 'timestamps.json'), JSON.stringify(elevenResponse.data.alignment));
+
+    fs.writeFileSync(
+      path.join(__dirname, 'public', 'latestAudio.mp3'),
+      audioData
+    );
+
+    fs.writeFileSync(
+      path.join(__dirname, 'public', 'timestamps.json'),
+      JSON.stringify(elevenResponse.data.alignment || {})
+    );
+
+    // Only mark ready after files are written
+    latestText = generatedText;
+    latestReady = true;
 
     console.log('✅ Story and audio saved successfully.');
     res.json({ status: 'ok' });
 
   } catch (error) {
     console.error('❌ Error generating response:', error.response?.data || error.message);
+    latestText = "";
+    latestReady = false;
     res.status(500).json({ error: 'Failed to generate story or audio.' });
   }
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`✨ Tree server running at http://localhost:${PORT}`);
+  console.log(`✨ Tree server running on port ${PORT}`);
 });
