@@ -11,22 +11,18 @@ const PORT = process.env.PORT || 3000;
 let latestText = "";
 let latestReady = false;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve index.html for root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Optional health check
 app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
-// Serve latest story text
 app.get('/latest', (req, res) => {
   res.json({
     text: latestReady ? latestText : "",
@@ -34,19 +30,14 @@ app.get('/latest', (req, res) => {
   });
 });
 
-// Handle prompt generation
 app.post('/generate', async (req, res) => {
   const { prompt } = req.body;
-  if (!prompt) {
-    return res.status(400).json({ error: 'No prompt provided' });
-  }
+  if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
 
-  // Clear previous response before starting new generation
   latestText = "";
   latestReady = false;
 
   try {
-    // Generate story text
     const gptResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -69,7 +60,6 @@ app.post('/generate', async (req, res) => {
 
     const generatedText = gptResponse.data.choices[0].message.content.trim();
 
-    // Generate TTS audio
     const elevenResponse = await axios.post(
       `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}/with-timestamps`,
       {
@@ -90,17 +80,12 @@ app.post('/generate', async (req, res) => {
 
     const audioData = Buffer.from(elevenResponse.data.audio_base64, 'base64');
 
-    fs.writeFileSync(
-      path.join(__dirname, 'public', 'latestAudio.mp3'),
-      audioData
-    );
-
+    fs.writeFileSync(path.join(__dirname, 'public', 'latestAudio.mp3'), audioData);
     fs.writeFileSync(
       path.join(__dirname, 'public', 'timestamps.json'),
       JSON.stringify(elevenResponse.data.alignment || {})
     );
 
-    // Only mark ready after files are written
     latestText = generatedText;
     latestReady = true;
 
@@ -115,7 +100,6 @@ app.post('/generate', async (req, res) => {
   }
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`✨ Tree server running on port ${PORT}`);
 });
