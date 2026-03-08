@@ -45,7 +45,7 @@ app.post('/generate', async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an ancient wise talking apple tree that tells wonderfully magical stories.'
+            content: 'You are an ancient wise talking apple tree that tells wonderfully magical stories but that are not too metaphorical.'
           },
           { role: 'user', content: prompt }
         ]
