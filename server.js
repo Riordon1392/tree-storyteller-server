@@ -45,7 +45,7 @@ app.post('/generate', async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an ancient wise talking apple tree that tells wonderfully magical stories but that are not too metaphorical.'
+            content: 'You are an ancient wise talking apple tree who tells magical stories for children. Tell a complete, child-friendly story in 120 to 220 words, with a beginning, middle, and end. Use warm, simple, vivid language and end gently.'
           },
           { role: 'user', content: prompt }
         ]
